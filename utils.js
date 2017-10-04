@@ -99,7 +99,12 @@ export const prepareForSave = diamonds => {
   diamonds.map(diamond => {
     let newDiamond = {}
     Object.keys(diamond).map(k => {
-      newDiamond[k] = diamond[k].toString()
+      if(k === 'cut') {
+        newDiamond['cut'] = diamond['cut'][0].label
+      }
+      else {
+        newDiamond[k] = diamond[k].toString()
+      }
     })
     final.push(newDiamond)
   })

@@ -18,6 +18,7 @@ import {
   incrementCaret,
   endIndexChanged,
   removeBlueNileDiamonds,
+  getInitialCaret,
   removeStartIndex,
   removeEndIndex,
   removeCaret
@@ -40,7 +41,7 @@ mongoose.Promise = require('bluebird')
 const {getState, dispatch} = store
 const resultFileName = 'results'
 const writer = createCsvFileWriter(resultFileName)
-const headersForCsv = [
+/*const headersForCsv = [
   'myPickSelected',
   'hasVisualization',
   'table',
@@ -67,10 +68,10 @@ const headersForCsv = [
   'detailsPageUrl',
   'detailsUrl',
   '_id'
-]
+]*/
 // const writer = createCsvFileWriter(resultFileName)
 
-const scrape = () => {
+const scrapeAndSaveInMongo = () => {
   const { 
     startIndex, 
     endIndex, 
@@ -97,7 +98,8 @@ const scrape = () => {
   .then(diamonds => dispatch(diamondsAddedBlueNile(diamonds)))
   .then(() => dispatch(incrementStartIndex()))
   .then(() => dispatch(incrementEndIndex()))
-  .then(() => scrape())
+  .delay(5000)
+  .then(() => scrapeAndSaveInMongo())
   .catch(err => {
     console.log(err)
     //error is throw when we've gone too far
@@ -106,13 +108,14 @@ const scrape = () => {
         return dispatch(incrementCaret())
           .then(() => dispatch(removeStartIndex()))
           .then(() => dispatch(removeEndIndex()))
-          .then(() => scrape())
+          .then(() => scrapeAndSaveInMongo())
         default:
           console.log('got err', err.code)
     }
   })
 
 }
+
 
 const syncReduxWithMongooseData = () => {
   return Promise.all([
@@ -130,19 +133,39 @@ const startFromScratch = () => {
     dispatch(removeEndIndex()),
     dispatch(removeCaret())
   ])
-  .then(scrape)
+  .then(scrapeAndSaveInMongo)
+}
+
+const writeDiamondsToCsv = () => {
+  return initializeDatabase()
+  then(() => syncReduxWithMongooseData())
+  .then(() => {
+    const {bluenileDiamonds} = getState()
+    let headersForCsv = Object.keys(bluenileDiamonds[0]._doc).map(k => k)
+    return writeHeadersToCsv(headersForCsv, writer)
+    .then(() => {
+      return Promise.all(Promise.map(bluenileDiamonds, diamond => {
+        return writeResultsToCsv(Object.keys(diamond._doc).map(k => diamond[k]), writer)
+      }))
+    })
+  })
 }
 
 initializeDatabase()
-.then(() => dispatch(getInitialBluenileDiamonds()))
-.then(() => {
-  return writeHeadersToCsv(headersForCsv, writer)
-})
-.then(() => {
-  const {bluenileDiamonds} = getState()
-  return Promise.all(Promise.map(bluenileDiamonds, diamond => {
-    return writeResultsToCsv(Object.keys(diamond._doc).map(k => diamond._doc[k]), writer)
-  }))
-})
-.then(() => console.log('done'); process.exit())
+.then(startFromScratch)
+.catch(console.log)
+//initializeDatabase()
+//.then(startFromScratch)
+// initializeDatabase()
+// .then(() => dispatch(getInitialBluenileDiamonds()))
+// .then(() => {
+//   return writeHeadersToCsv(headersForCsv, writer)
+// })
+// .then(() => {
+//   const {bluenileDiamonds} = getState()
+//   return Promise.all(Promise.map(bluenileDiamonds, diamond => {
+//     return writeResultsToCsv(Object.keys(diamond._doc).map(k => diamond._doc[k]), writer)
+//   }))
+// })
+// .then(() => console.log('done'); process.exit())
 

@@ -9,7 +9,6 @@ const DATABASE_URL = 'mongodb://localhost/bluenile_db'
 export const initializeDatabase = () => {
   return new Promise((resolve, reject) => {
     mongoose.connect(DATABASE_URL, {useMongoClient:true}, (err, success) => {
-      console.log('error', err, 'success', success)
       if(!!err) {
         reject(err)
       }
@@ -39,4 +38,4 @@ export const DEFAULT_END_INDEX = 257
 export const INCREMENT_VARIABLE = 257
 export const CARET_INCREMENT_VARIABLE = 0.1
 export const START_CARET = 0.50
-export const END_CARET = 10
+export const END_CARET = 21
