@@ -39,9 +39,9 @@ mongoose.Promise = require('bluebird')
 
 
 const {getState, dispatch} = store
-const resultFileName = 'results'
+const resultFileName = 'results1'
 const writer = createCsvFileWriter(resultFileName)
-/*const headersForCsv = [
+const headersForCsv = [
   'myPickSelected',
   'hasVisualization',
   'table',
@@ -68,7 +68,7 @@ const writer = createCsvFileWriter(resultFileName)
   'detailsPageUrl',
   'detailsUrl',
   '_id'
-]*/
+]
 // const writer = createCsvFileWriter(resultFileName)
 
 const scrapeAndSaveInMongo = () => {
@@ -133,7 +133,7 @@ const startFromScratch = () => {
     dispatch(removeEndIndex()),
     dispatch(removeCaret())
   ])
-  .then(scrapeAndSaveInMongo)
+  .then(scrapeAndSaveInCsv)
 }
 
 const writeDiamondsToCsv = () => {
@@ -151,9 +151,62 @@ const writeDiamondsToCsv = () => {
   })
 }
 
+const scrapeAndSaveInCsv = () => {
+  console.log('scraping and saving in csv')
+  const { 
+    startIndex, 
+    endIndex, 
+    bluenileDiamonds,
+    caret
+     } = getState()
+  console.log(`current status: startIndex: ${startIndex}, endIndex ${endIndex}, caret:${caret}`)
+  if(caret > END_CARET) {
+    console.log('done')
+    process.exit()
+  }
+  fetchBluenileDiamonds(startIndex, caret)
+  .then(diamonds => {
+    if (diamonds && diamonds.length > 0) {
+      return prepareForSave(diamonds)
+    }
+    else {
+      throw({
+        code: 300,
+        status: 'End Reached'
+      })
+    }
+  })
+  .then(diamonds => {
+    return Promise.map(diamonds, diamond => {
+      return writeResultsToCsv(Object.keys(diamond).map(k => diamond[k]), writer)
+    })
+  })
+  .then(() => dispatch(incrementStartIndex()))
+  .then(() => dispatch(incrementEndIndex()))
+  .then(scrapeAndSaveInCsv)
+  .catch(err => {
+    console.log(err)
+    //error is throw when we've gone too far
+    switch(err.code) {
+      case 300:
+        return dispatch(incrementCaret())
+          .then(() => dispatch(removeStartIndex()))
+          .then(() => dispatch(removeEndIndex()))
+          .then(() => scrapeAndSaveInCsv())
+        default:
+          console.log('got err', err.code)
+    }
+  })
+}
+
 initializeDatabase()
-.then(startFromScratch)
+.then(() => writeHeadersToCsv(headersForCsv, writer))
+.then(() => startFromScratch())
 .catch(console.log)
+
+/*initializeDatabase()
+.then(startFromScratch)
+.catch(console.log)*/
 //initializeDatabase()
 //.then(startFromScratch)
 // initializeDatabase()
